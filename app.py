@@ -4,27 +4,18 @@ import pandas as pd
 import pandas_ta as ta
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import google.generativeai as genai
 import os
 from datetime import datetime
-import requests # 新增requests for 下載字體
 
 # --- 中文顯示設定 ---
 font_path = "TaipeiSansTCBeta-Regular.ttf"
-font_url = "https://drive.google.com/uc?id=1eGAsTN1HBpJAkeVM57_C7ccp7hbgSz3_&export=download"
 
-# 檢查字體是否存在，如果不存在則下載
+# 檢查字體是否存在，如果不存在則顯示錯誤
 if not os.path.exists(font_path):
-    st.info("偵測到缺少中文字體，正在下載「台北思源黑體」以正確顯示中文。")
-    try:
-        response = requests.get(font_url, stream=True)
-        response.raise_for_status() # 檢查請求是否成功
-        with open(font_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        st.success("字體下載完成！")
-    except Exception as e:
-        st.error(f"下載字體失敗：{e}。中文可能無法正常顯示。")
+    st.error(f"錯誤：找不到中文字體檔案 '{font_path}'。請確保字體檔案位於專案根目錄下。")
+    st.info("您可以從以下來源下載「台北思源黑體」：[GitHub](https://github.com/google/fonts/tree/main/ofl/taipeisanstcbeta)")
+    # 停止執行以避免後續的字體設定錯誤
+    st.stop()
 
 # 載入並設定中文字體
 try:
@@ -35,39 +26,11 @@ except Exception as e:
     st.error(f"設定中文字體失敗：{e}。中文可能無法正常顯示。")
 
 # --- 基本設定 ---
-st.set_page_config(page_title="AI 股票分析助理", layout="wide")
-st.title("📈 AI 股票分析助理")
+st.set_page_config(page_title="股票分析工具", layout="wide")
+st.title("📈 股票技術分析")
 
 
-# --- Gemini API 設定 ---
-# 從 Streamlit secrets 或環境變數獲取 API 金鑰
-api_key_configured = False
-try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    api_key_configured = True
-except (FileNotFoundError, KeyError):
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        api_key_configured = True
-
-if api_key_configured:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    st.warning("您尚未設定 Gemini API 金鑰，AI 分析功能將被停用。")
-    st.markdown("""
-        若要啟用 AI 分析，請設定您的 API 金鑰。有兩種方式：
-        1.  **（建議）** 在專案中建立一個 `.streamlit/secrets.toml` 檔案，並加入以下內容：
-            ```toml
-            GEMINI_API_KEY = "您的API金鑰"
-            ```
-        2.  設定名為 `GEMINI_API_KEY` 的環境變數。
-
-        您可以從 [Google AI Studio](https://aistudio.google.com/app/apikey) 的免費方案獲取金鑰。
-    """)
-
-
-# --- 主要功能 (將在後續步驟中實作) ---
+# --- 主要功能 ---
 
 def get_stock_data(ticker, start_date, end_date):
     """獲取股票數據"""
@@ -140,47 +103,6 @@ def plot_charts(data, ticker):
     st.pyplot(fig3)
 
 
-def get_ai_analysis(stock_data, ticker):
-    """使用 Gemini AI 分析股票數據"""
-    st.info("🤖 AI 正在分析數據，請稍候...")
-
-    # 準備給 AI 的數據摘要
-    latest_data = stock_data.iloc[-1]
-    data_summary = f"""
-    - **最新收盤價**: {latest_data['Close']:.2f}
-    - **最新成交量**: {latest_data['Volume']:.0f}
-    - **52週高點**: {stock_data['Close'].max():.2f}
-    - **52週低點**: {stock_data['Close'].min():.2f}
-    - **最新 RSI (14天)**: {latest_data['RSI_14']:.2f}
-    - **最新 MACD**: {latest_data['MACD_12_26_9']:.2f}
-    - **MACD 信號線**: {latest_data['MACDs_12_26_9']:.2f}
-    """
-
-    prompt = f"""
-    您是一位專業的台股分析師。請根據以下股票數據和技術指標，為股票 {ticker} 提供一份專業、條理分明、且客觀的分析報告。
-
-    **分析重點:**
-    1.  **基本趨勢**: 根據收盤價和成交量，判斷目前的市場趨勢（多頭、空頭、盤整）。
-    2.  **技術指標解讀**:
-        *   **RSI**: 解釋目前的 RSI 值所代表的市場情緒（超買、超賣、中性），並評估其對未來股價的可能影響。
-        *   **MACD**: 解釋 MACD 線、信號線和柱狀圖的關係（黃金交叉、死亡交叉），並判斷動能的增強或減弱。
-    3.  **綜合評論與展望**: 結合以上分析，提供一個簡潔的綜合評論，並對短期內的股價走勢做出合理展望。請以中立、客觀的角度進行分析，並避免提供直接的買賣建議。
-
-    **數據摘要:**
-    {data_summary}
-
-    請以 Markdown 格式輸出您的分析報告，包含標題和分點說明。
-    """
-
-    try:
-        response = model.generate_content(prompt)
-        st.success("AI 分析完成！")
-        return response.text
-    except Exception as e:
-        st.error(f"AI 分析失敗：{e}")
-        return None
-
-
 # --- Streamlit UI 佈局 ---
 st.sidebar.header("分析設定")
 ticker_input = st.sidebar.text_input("請輸入台股代碼 (例如: 2330.TW)", "2330.TW")
@@ -199,13 +121,7 @@ if st.sidebar.button("開始分析"):
             # 3. 繪製圖表
             plot_charts(stock_data_with_indicators, ticker_input)
 
-            # 4. AI 分析 (僅當 API 金鑰已設定時)
-            if api_key_configured:
-                ai_report = get_ai_analysis(stock_data_with_indicators, ticker_input)
-                if ai_report:
-                    st.subheader("🤖 AI 投資分析報告")
-                    st.markdown(ai_report)
     else:
         st.sidebar.warning("請輸入股票代碼。")
 
-st.sidebar.info("這是一個使用 AI 進行股票分析的範例專案。所有分析僅供參考，不構成任何投資建議。")
+st.sidebar.info("這是一個使用技術指標進行股票分析的範例專案。所有分析僅供參考，不構成任何投資建議。")

@@ -1,6 +1,5 @@
 streamlit
 yfinance
 pandas
-google-generativeai
 matplotlib
 pandas-ta
