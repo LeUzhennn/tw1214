@@ -19,3 +19,7 @@ build/
 
 # Streamlit
 .streamlit/
+
+# Gemini Agent & Workspace
+GEMINI.md
+taiwan_stock_1214.code-workspace
