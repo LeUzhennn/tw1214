@@ -13,9 +13,10 @@ build/
 # Environment
 .env
 
-# IDE
+# IDE & Dev Environment
 .vscode/
 .idea/
+.devcontainer/
 
 # Streamlit
 .streamlit/
